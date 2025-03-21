@@ -6,6 +6,7 @@ use axum::{
 };
 use handlers::{compress_file, upload_file};
 use tokio::net::TcpListener;
+use tower_http::services::ServeDir;
 
 #[tokio::main]
 async fn main() {
@@ -13,7 +14,8 @@ async fn main() {
     let app = Router::new()
         .route("/", get(|| async { "Hello, World!" }))
         .route("/upload-files", post(upload_file::upload_files))
-        .route("/compress-files", post(compress_file::compress_all_files));
+        .route("/compress-files", post(compress_file::compress_all_files))
+        .nest_service("/compressed-files", ServeDir::new("compressed"));
 
     // Define the address for the server to listen on
     let listener = match TcpListener::bind("0.0.0.0:3000").await {

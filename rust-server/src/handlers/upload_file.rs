@@ -3,6 +3,7 @@ use std::{
     fs::File,
     io::{self, Write},
     path::PathBuf,
+    time::{SystemTime, UNIX_EPOCH},
 };
 
 /// Saves the uploaded file to the `uploads` directory
@@ -16,7 +17,10 @@ async fn save_file(file_name: String, data: &[u8]) -> io::Result<()> {
 pub async fn upload_files(mut multipart: Multipart) -> impl IntoResponse {
     while let Ok(Some(mut field)) = multipart.next_field().await {
         // Extract file name and content if available
-        let file_name = String::from(field.file_name().unwrap_or("unnamed"));
+        let file_name = match extract_filename(&field) {
+            Ok(value) => value,
+            Err(value) => return value,
+        };
 
         while let (file_name, Some(data)) = (
             file_name.to_owned(),
@@ -33,4 +37,19 @@ pub async fn upload_files(mut multipart: Multipart) -> impl IntoResponse {
     }
 
     String::from("File uploaded successfully")
+}
+
+fn extract_filename(field: &axum::extract::multipart::Field<'_>) -> Result<String, String> {
+    let mut file_name: String = String::from(field.file_name().unwrap_or("unnamed"))
+        .split(&[' ', '-', ':', '\''])
+        .collect();
+
+    let now = SystemTime::now();
+
+    match now.duration_since(UNIX_EPOCH) {
+        Ok(duration) => file_name.insert_str(0, &format!("{}", duration.as_secs())),
+        Err(_) => return Err(format!("Time went backward!")),
+    };
+
+    Ok(file_name)
 }
