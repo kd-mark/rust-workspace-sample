@@ -1,20 +1,19 @@
 use flate2::write::GzEncoder;
 use flate2::Compression;
 use std::fs::File;
-use std::io::{Read, Write};
+use std::io::{self, Read, Write};
 
-pub fn compress_file(input_file: &str, output_file: &str) {
-    let mut input = File::open(input_file).expect("Unable to open input file");
+/// Compresses a file using gzip and saves it in the `compressed` directory
+pub fn compress_file(input_file: &str, output_file: &str) -> io::Result<()> {
+    let mut input = File::open(input_file)?;
     let mut data = Vec::new();
-    input
-        .read_to_end(&mut data)
-        .expect("Unable to read input file contents");
+    input.read_to_end(&mut data)?;
 
-    let output = File::create(output_file).expect("Unable to create output file");
+    let output = File::create(output_file)?;
     let mut encoder = GzEncoder::new(output, Compression::default());
-    encoder.write_all(&data).expect("Unable to compress file");
+    encoder.write_all(&data)?;
 
-    println!("File compressed successfully");
+    Ok(())
 }
 
 #[cfg(test)]
@@ -33,7 +32,7 @@ mod tests {
         writeln!(file, "This is a test file for compression.")?;
 
         // Compress the file
-        compress_file(input_path, output_path);
+        assert!(compress_file(input_path, output_path).is_ok());
 
         // Check if the compressed file exists and is non-empty
         let metadata = fs::metadata(output_path)?;
