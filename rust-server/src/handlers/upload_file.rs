@@ -37,7 +37,7 @@ pub async fn upload_files(mut multipart: Multipart) -> impl IntoResponse {
     }
 
     String::from(format!(
-        r#"{{"status": 201,"message": "File uploaded successfully.",files:{:?}}}"#,
+        r#"{{"status": 201,"message": "File uploaded successfully.","files":{:?}}}"#,
         uploaded_file_urls
     ))
 }
