@@ -4,13 +4,13 @@ use std::fs::File;
 use std::io::{self, Read, Write};
 
 /// Compresses a file using gzip and saves it in the `compressed` directory
-pub fn compress_file(input_file: &str, output_file: &str) -> io::Result<()> {
+pub async fn compress_file(input_file: &str, output_file: &str, compression_level: Compression) -> io::Result<()> {
     let mut input = File::open(input_file)?;
     let mut data = Vec::new();
     input.read_to_end(&mut data)?;
 
     let output = File::create(output_file)?;
-    let mut encoder = GzEncoder::new(output, Compression::default());
+    let mut encoder = GzEncoder::new(output, compression_level);
     encoder.write_all(&data)?;
 
     Ok(())
@@ -21,9 +21,10 @@ mod tests {
     use super::*;
     use std::fs;
     use std::io::{self, Write};
+    use tokio;
 
-    #[test]
-    fn test_compress_file() -> io::Result<()> {
+    #[tokio::test]
+    async fn test_compress_file() -> io::Result<()> {
         let input_path = "test_input.txt";
         let output_path = "test_output.gz";
 
@@ -32,7 +33,7 @@ mod tests {
         writeln!(file, "This is a test file for compression.")?;
 
         // Compress the file
-        assert!(compress_file(input_path, output_path).is_ok());
+        assert!(compress_file(input_path, output_path, Compression::default()).await.is_ok());
 
         // Check if the compressed file exists and is non-empty
         let metadata = fs::metadata(output_path)?;
