@@ -4,6 +4,7 @@ use crate::helpers::date_formater::DateFormater;
 
 pub trait Logger: Send + Sync {
     fn log(&self, message: &str);
+    fn info(&self, message: &str);
     fn error(&self, message: &str);
     fn warn(&self, message: &str);
     fn debug(&self, message: &str);
@@ -26,6 +27,15 @@ impl<'a> DefaultLogger<'a> {
 
 impl<'a> Logger for DefaultLogger<'a> {
     fn log(&self, message: &str) {
+        println!(
+            "\x1b[0m[INFO] {} [{}] - {}",
+            DateFormater::datetime(),
+            self.module_name,
+            message
+        );
+    }
+
+    fn info(&self, message: &str) {
         println!(
             "\x1b[32m[INFO] {} [{}] - {}",
             DateFormater::datetime(),

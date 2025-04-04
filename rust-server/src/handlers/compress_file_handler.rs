@@ -1,14 +1,12 @@
 use std::sync::Arc;
 
-use axum::{
-    http::StatusCode,
-    response::IntoResponse,
-};
+use axum::{http::StatusCode, response::IntoResponse};
 use rust_server::compress_file;
-use serde::Deserialize;
 use sqlx::types::Uuid;
-use sqlx::PgPool;
 
+use crate::app::AppState;
+use crate::dtos::CompressionQuery;
+use crate::helpers::env::Env;
 use crate::services::{compressed_file_service::CompressedFileService, file_service::FileService};
 use crate::{
     dtos::CreateCompressedFile,
@@ -17,24 +15,20 @@ use crate::{
     models::file::FileStatus,
 };
 
-// Define a struct to receive the compression level from the client
-#[derive(Deserialize)]
-pub struct CompressionLevel {
-    level: u32,
-}
-
 pub struct CompressionHandler {
+    env: Arc<Env>,
     logger: Arc<dyn Logger>,
     file_service: FileService,
     compressed_file_service: CompressedFileService,
 }
 
 impl CompressionHandler {
-    pub fn new(pool: Arc<PgPool>) -> Self {
+    pub fn new(state: Arc<AppState>) -> Self {
         Self {
             // Initialize the services
-            file_service: FileService::new(pool.clone()),
-            compressed_file_service: CompressedFileService::new(pool.clone()),
+            env: state.env.clone(),
+            file_service: FileService::new(state.pool.clone()),
+            compressed_file_service: CompressedFileService::new(state.pool.clone()),
 
             // Initialize the logger
             logger: Arc::new(DefaultLogger::new::<CompressionHandler>()),
@@ -44,7 +38,7 @@ impl CompressionHandler {
 
 impl CompressionHandler {
     //// Endpoint to trigger file compression on demand
-    pub async fn initiate(&self, id: String, query: CompressionLevel) -> impl IntoResponse {
+    pub async fn initiate(&self, id: String, query: CompressionQuery) -> impl IntoResponse {
         let id_uuid: Uuid = match id.parse() {
             Ok(uuid) => uuid,
             Err(_) => {
@@ -60,7 +54,7 @@ impl CompressionHandler {
             Err(value) => return value,
         };
 
-        let input_path = match FileHelper::get_uploaded_file_path(&file.file_ref) {
+        let input_path = match FileHelper::get_uploaded_file_path(&file.file_ref, &self.env.uploads_dir) {
             Some(value) => value,
             None => {
                 return (
@@ -70,7 +64,7 @@ impl CompressionHandler {
             }
         };
 
-        let output_path = match FileHelper::get_compressed_file_path(&file.file_ref) {
+        let output_path = match FileHelper::get_compressed_file_path(&file.file_ref, &self.env.compressed_dir) {
             Some(value) => value,
             None => {
                 return (

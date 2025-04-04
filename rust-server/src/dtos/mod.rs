@@ -2,7 +2,7 @@ use serde::Deserialize;
 
 // Define a struct to receive the compression level from the client
 #[derive(Deserialize)]
-pub struct CompressionLevel {
+pub struct CompressionQuery {
     pub level: u32,
 }
 

@@ -1,8 +1,8 @@
 use crate::{dtos::CreateFile, models::file::File};
 use axum::http::StatusCode;
 use sqlx::{postgres::PgRow, types::Uuid, PgPool};
-use std::sync::Arc;
 use sqlx::Row;
+use std::sync::Arc;
 
 #[derive(Debug, Clone)]
 pub struct FileService {
