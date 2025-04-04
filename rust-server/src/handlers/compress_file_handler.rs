@@ -104,7 +104,7 @@ impl CompressionHandler {
                                 ));
                             }
                         }
-                        Err(_) => {
+                        Err(e) => {
                             if let Err(db_err) =
                                 service.update_status(id_uuid, FileStatus::Failed).await
                             {
@@ -113,6 +113,7 @@ impl CompressionHandler {
                                     db_err
                                 ));
                             }
+                            logger.error(&format!("Compression task(id: {}) failed: {e}", id_uuid));
                         }
                     }
                     logger.debug(&format!("Compression task(id: {}) completed.", id_uuid));
@@ -120,7 +121,10 @@ impl CompressionHandler {
 
                 (StatusCode::OK, serde_json::json!(row).to_string())
             }
-            Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, format!("Failed to create compressed file: {e}")),
+            Err(e) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Failed to create compressed file: {e}"),
+            ),
         }
     }
 
@@ -137,7 +141,12 @@ impl CompressionHandler {
 
         let file = match self.compressed_file_service.find_one(id_uuid).await {
             Ok(value) => value,
-            Err(value) => return (StatusCode::INTERNAL_SERVER_ERROR, value.to_string()),
+            Err(e) => {
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    format!("Compressed file not found: {e}"),
+                )
+            }
         };
 
         (StatusCode::OK, serde_json::json!(file).to_string())

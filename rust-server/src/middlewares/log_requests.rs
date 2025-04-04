@@ -15,6 +15,7 @@ pub async fn log_requests(req: Request, next: Next) -> Result<Response, StatusCo
     let method = req.method().clone();
     let uri = req.uri().clone();
 
+    logger.info(&format!("{} {} - Started", method, uri));
     let response = next.run(req).await; // Call the next handler in the chain
 
     let duration = start.elapsed();
