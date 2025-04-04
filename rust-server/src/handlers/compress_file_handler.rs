@@ -51,28 +51,30 @@ impl CompressionHandler {
 
         let file = match self.file_service.find_one(id_uuid).await {
             Ok(value) => value,
-            Err(value) => return value,
+            Err(e) => return (StatusCode::NOT_FOUND, format!("File record not found: {e}")),
         };
 
-        let input_path = match FileHelper::get_uploaded_file_path(&file.file_ref, &self.env.uploads_dir) {
-            Some(value) => value,
-            None => {
-                return (
-                    StatusCode::NOT_FOUND,
-                    format!("File not found: {}", &file.file_ref),
-                )
-            }
-        };
+        let input_path =
+            match FileHelper::get_uploaded_file_path(&file.file_ref, &self.env.uploads_dir) {
+                Some(value) => value,
+                None => {
+                    return (
+                        StatusCode::NOT_FOUND,
+                        format!("File not found: {}", &file.file_ref),
+                    )
+                }
+            };
 
-        let output_path = match FileHelper::get_compressed_file_path(&file.file_ref, &self.env.compressed_dir) {
-            Some(value) => value,
-            None => {
-                return (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    format!("Failed to create output path: {}", &file.file_ref),
-                )
-            }
-        };
+        let output_path =
+            match FileHelper::get_compressed_file_path(&file.file_ref, &self.env.compressed_dir) {
+                Some(value) => value,
+                None => {
+                    return (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        format!("Failed to create output path: {}", &file.file_ref),
+                    )
+                }
+            };
 
         let (compression_level, compressed_file) = self
             .compressed_file_service
@@ -91,6 +93,7 @@ impl CompressionHandler {
                 let service = self.compressed_file_service.clone();
 
                 tokio::task::spawn(async move {
+                    logger.debug(&format!("Starting compression task(id: {})...", id_uuid));
                     match compress_file(&input_path, &output_path, compression_level).await {
                         Ok(_) => {
                             if let Err(e) = service.update_status(id_uuid, FileStatus::Passed).await
@@ -112,11 +115,12 @@ impl CompressionHandler {
                             }
                         }
                     }
+                    logger.debug(&format!("Compression task(id: {}) completed.", id_uuid));
                 });
 
                 (StatusCode::OK, serde_json::json!(row).to_string())
             }
-            Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()),
+            Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, format!("Failed to create compressed file: {e}")),
         }
     }
 

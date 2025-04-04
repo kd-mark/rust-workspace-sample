@@ -18,7 +18,7 @@ pub async fn log_requests(req: Request, next: Next) -> Result<Response, StatusCo
     let response = next.run(req).await; // Call the next handler in the chain
 
     let duration = start.elapsed();
-    logger.debug(&format!("{} {} - Took {:?}", method, uri, duration));
+    logger.info(&format!("{} {} - Took {:?}", method, uri, duration));
 
     Ok(response)
 }

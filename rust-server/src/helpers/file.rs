@@ -21,6 +21,11 @@ impl FileHelper {
     }
     
     pub fn get_uploaded_file_path(file_ref: &str, uploads_dir: &str) -> Option<String> {
+        let uploads_dir = PathBuf::from(uploads_dir);
+        if let Err(_) = std::fs::create_dir_all(&uploads_dir) {
+            return None;
+        }
+
         let input_path_buf = PathBuf::from(uploads_dir).join(file_ref);
         let input_path = match input_path_buf.to_str() {
             Some(path) => path.to_string(),

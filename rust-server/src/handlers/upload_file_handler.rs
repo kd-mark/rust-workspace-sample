@@ -1,11 +1,21 @@
 use axum::{extract::Multipart, http::StatusCode, response::IntoResponse};
 use sqlx::types::Uuid;
 use std::{
-    fs::File, io::{self, Write}, path::PathBuf, sync::Arc, time::{SystemTime, UNIX_EPOCH}
+    fs::File,
+    io::{self, Write},
+    sync::Arc,
+    time::{SystemTime, UNIX_EPOCH},
 };
 
 use crate::{
-    app::AppState, dtos::CreateFile, helpers::{env::Env, logger::{DefaultLogger, Logger}}, services::file_service::FileService
+    app::AppState,
+    dtos::CreateFile,
+    helpers::{
+        env::Env,
+        file::FileHelper,
+        logger::{DefaultLogger, Logger},
+    },
+    services::file_service::FileService,
 };
 
 pub struct UploadFileHandler {
@@ -48,20 +58,30 @@ impl UploadFileHandler {
                     let file_service = self.file_service.clone();
                     let logger = self.logger.clone();
                     let task = tokio::spawn(async move {
-                        if let Err(e) = Self::save_file(file_name.to_owned(), &data, &env.uploads_dir).await {
-                            logger.info(&format!("Failed to save file: {}", e));
+                        logger.debug(&format!("Saving file: {}...", file_name));
+                        if let Err(e) =
+                            Self::save_file(file_name.to_owned(), &data, &env.uploads_dir).await
+                        {
+                            logger.error(&format!("Failed to save file: {}", e));
                             return Err((
                                 StatusCode::BAD_REQUEST,
                                 format!("Failed to save file: {}", e),
                             ));
                         }
 
-                        file_service
+                        match file_service
                             .create(CreateFile {
                                 file_ref: format!("/uploads/{file_name}"),
                                 size: data.len() as u64,
                             })
                             .await
+                        {
+                            Ok(file) => Ok(file),
+                            Err(e) => Err((
+                                StatusCode::INTERNAL_SERVER_ERROR,
+                                format!("Failed to create file: {e}"),
+                            )),
+                        }
                     });
                     uploaded_file_tasks.push(task);
                 }
@@ -73,7 +93,10 @@ impl UploadFileHandler {
             .into_iter()
             .filter_map(|file| match file {
                 Ok(file) => match file {
-                    Ok(file) => Some(file),
+                    Ok(file) => {
+                        self.logger.debug(&format!("File saved: {}", file.file_ref));
+                        Some(file)
+                    }
                     Err(_) => None,
                 },
                 Err(_) => None,
@@ -98,7 +121,7 @@ impl UploadFileHandler {
 
         let file = match self.file_service.find_one(id_uuid).await {
             Ok(file) => file,
-            Err(value) => return value,
+            Err(e) => return (StatusCode::NOT_FOUND, format!("File not found: {e}")),
         };
 
         (StatusCode::OK, serde_json::to_string(&file).unwrap())
@@ -108,9 +131,16 @@ impl UploadFileHandler {
 impl UploadFileHandler {
     /// Saves the uploaded file to the `uploads` directory
     pub async fn save_file(file_name: String, data: &[u8], uploads_dir: &str) -> io::Result<()> {
-        let save_path = PathBuf::from(uploads_dir).join(file_name);
-        let mut file = File::create(save_path)?; // Create a new file in the uploads directory
-        file.write_all(data) // Write the received data into the file
+        let save_path = FileHelper::get_uploaded_file_path(&file_name, uploads_dir);
+        if let Some(save_path) = save_path {
+            let mut file = File::create(save_path)?; // Create a new file in the uploads directory
+            file.write_all(data) // Write the received data into the file
+        } else {
+            return Err(io::Error::new(
+                io::ErrorKind::Other,
+                "Failed to get save path",
+            ));
+        }
     }
 
     fn extract_filename(field: &axum::extract::multipart::Field<'_>) -> Result<String, String> {

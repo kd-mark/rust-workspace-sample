@@ -54,7 +54,7 @@ impl App {
         let app = Self::route(self.state.clone());
         // Serve the files from the uploads directory
         let app = app.nest_service(
-            self.state.env.uploads_dir.as_str(),
+            &format!("/{}", self.state.env.uploads_dir),
             ServeDir::new(self.state.env.uploads_dir.as_str()),
         );
 

@@ -28,7 +28,7 @@ impl<'a> DefaultLogger<'a> {
 impl<'a> Logger for DefaultLogger<'a> {
     fn log(&self, message: &str) {
         println!(
-            "\x1b[0m[INFO] {} [{}] - {}",
+            "\x1b[0m[LOG] {} [{}] - {}",
             DateFormater::datetime(),
             self.module_name,
             message

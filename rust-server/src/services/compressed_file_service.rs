@@ -31,7 +31,7 @@ impl CompressedFileService {
             _ => Compression::default(),
         };
 
-        let compressed_file = sqlx::query("INSERT INTO compressed_files (status, file_ref, level, alg) VALUES ($1, $2, $3, $4) RETURNING id, status, file_ref, level, alg")
+        let compressed_file = sqlx::query("INSERT INTO compressed_files (status, file_ref, level, alg) VALUES ($1, $2, $3, $4) RETURNING id::text, status, file_ref, level, alg")
             .bind(FileStatus::Compressing)
             .bind(create_compressed_file.file_ref)
             .bind(compression_level.level() as i32)
@@ -60,7 +60,7 @@ impl CompressedFileService {
     }
 
     pub async fn find_one(&self, id: Uuid) -> Result<CompressedFile, sqlx::Error> {
-        sqlx::query("SELECT * FROM compressed_files WHERE id = $1")
+        sqlx::query("SELECT id::text, status, file_ref, level, alg FROM compressed_files WHERE id = $1")
             .bind(id)
             .fetch_one(&*self.pool)
             .await
